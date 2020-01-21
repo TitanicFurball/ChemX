@@ -150,7 +150,7 @@ class Main:
         all_sprites.add(bck, layer=-1)
         
         main_flask = Flask((384, 300), flask_group)
-        all_sprites.add(main_flask, layer=0)
+        all_sprites.add(main_flask, layer=1)
         
         
         pipette_x = 595
@@ -220,17 +220,47 @@ class Main:
         left, right, up = False, False, False
         actions_list = [left, right, up]
         checkpoint = start_checkpoint
-
+        dragging = False
+        saved_el = None
+        print(elem_group)
+        
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.terminate()
              # Сигналы, получаемые от игрока     
-                if event.type == pygame.KEYDOWN:
-                    if event.key in DCT_FOR_MOVING_PLAYER.keys():
-                        actions_list[DCT_FOR_MOVING_PLAYER[event.key]] = True
-                    elif event.key == pygame.K_SPACE: 
-                        player.shoot(bullet_group, all_sprites)                  
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    #try:
+                    coords = table.get_cell(event.pos)
+                    if coords!= None:
+                        x, y = coords[0], coords[1]
+                    saved_el = self.spis_el[x]
+                    '''if saved_el.mask.get_at((event.pos[0] - saved_el.rect.x,\
+                                                       event.pos[1]\
+                                                       - saved_el.rect.y)):
+                        print(True)
+                        dragging = True
+                        mouse_x, mouse_y = event.pos
+                        offset_x = saved_el.rect.x - mouse_x
+                        offset_y = saved_el.rect.y - mouse_y'''
+                    dragging = True
+                    mouse_x, mouse_y = event.pos
+                    offset_x = saved_el.rect.x - mouse_x
+                    offset_y = saved_el.rect.y - mouse_y 
+                    
+                #except Exception:
+                #continue
+                         
+                if event.type == pygame.MOUSEMOTION:
+                    if dragging and saved_el != None:
+                        mouse_x, mouse_y = event.pos
+                        saved_el.change_pos((mouse_x + offset_x, mouse_y + offset_y))
+                        #saved_el.rect.y =   
+                        
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:            
+                    dragging = False
+                    saved_el = None
+                                     
 
                 if event.type == pygame.KEYUP:
                     if event.key in DCT_FOR_MOVING_PLAYER.keys():
@@ -292,7 +322,7 @@ class Object(pygame.sprite.Sprite):
         super().add(*groups)
     
     def groups(self):
-        return super().groups()
+        return super().groups()  
 
 
 class Flask(Object):
@@ -300,7 +330,8 @@ class Flask(Object):
         super().__init__(pos, 'Flask.png', None, *groups)
         self.pos = pos
         self.image = pygame.transform.scale(self.image, (250, 250))
-        self.rect = self.image.get_rect().move(pos[0], pos[1])   
+        self.rect = self.image.get_rect().move(pos[0], pos[1])
+        self.mask = pygame.mask.from_surface(self.image)
 
 
 class Pipette(Object):
@@ -309,6 +340,7 @@ class Pipette(Object):
         self.pos = pos
         self.image = pygame.transform.scale(self.image, (80, 120))
         self.rect = self.image.get_rect().move(pos[0], pos[1])
+        self.mask = pygame.mask.from_surface(self.image)
 
 
 class Matches(Object):
@@ -317,6 +349,7 @@ class Matches(Object):
         self.pos = pos
         self.image = pygame.transform.scale(self.image, (270, 280))
         self.rect = self.image.get_rect().move(pos[0], pos[1])
+        self.mask = pygame.mask.from_surface(self.image)
 
 
 class Burner(Object):
@@ -325,12 +358,15 @@ class Burner(Object):
         self.pos = pos
         self.image = pygame.transform.scale(self.image, (165, 230))
         self.rect = self.image.get_rect().move(pos[0], pos[1])
+        self.mask = pygame.mask.from_surface(self.image)
         self.state = 'inactive'
+
 
 class Encyclopaedia(Object):
     def __init__(self, pos, *groups):
         super().__init__(pos, 'book.png', -1, *groups)
         self.pos = pos
+        self.mask = pygame.mask.from_surface(self.image)
         self.image = pygame.transform.scale(self.image, (100, 100))
         self.rect = self.image.get_rect().move(pos[0], pos[1])
 
@@ -368,7 +404,7 @@ class Table_of_elements:
                         (self.board[i][j]).change_pos((x + 34, y + 20))
                     elif (self.board[i][j]).normal_state == 'solid':
                         (self.board[i][j]).change_pos((x + 25, y + 20))                    
-                    all_sprites.add(self.board[i][j], layer=-1)
+                    all_sprites.add(self.board[i][j], layer=2)
                     
                 x += self.cell_size
             x = self.left
@@ -389,19 +425,9 @@ class Table_of_elements:
             return coords
         else:
             return None
+        
     def on_click(self, cell_coords):
-        x = cell_coords[0]
-        y = cell_coords[1]
-        if self.board[y][x] == 0:
-            self.board[y][x] = 1
-        elif self.board[y][x] == 1:
-            self.board[y][x] = 2
-        else:
-            self.board[y][x] = 0                     
-    def get_click(self, mouse_pos):
-        cell = self.get_cell(mouse_pos)
-        if cell != None:
-            self.on_click(cell)
+        pass
 '''while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -433,6 +459,9 @@ class Substance(Object):
         self.image.blit(colorImage, (0,0), \
                         special_flags = pygame.BLEND_RGB_MULT)        
         self.quantity = quantity
+        
+        self.rect = self.image.get_rect().move(pos[0], pos[1])
+        self.mask = pygame.mask.from_surface(self.image)
     
     def change_pos(self, pos):
         self.rect.x = pos[0]
