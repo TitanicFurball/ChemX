@@ -145,6 +145,7 @@ class Main:
         book_group = pygame.sprite.GroupSingle()
         elem_group = pygame.sprite.Group()
         save_group = pygame.sprite.Group()
+        test_group = pygame.sprite.GroupSingle()
     
         bck = Background(self.size, background_group)
         all_sprites.add(bck, layer=-1)
@@ -230,36 +231,45 @@ class Main:
                     self.terminate()
              # Сигналы, получаемые от игрока     
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    #try:
-                    coords = table.get_cell(event.pos)
-                    if coords!= None:
-                        x, y = coords[0], coords[1]
-                    saved_el = self.spis_el[x]
-                    '''if saved_el.mask.get_at((event.pos[0] - saved_el.rect.x,\
-                                                       event.pos[1]\
-                                                       - saved_el.rect.y)):
-                        print(True)
-                        dragging = True
-                        mouse_x, mouse_y = event.pos
-                        offset_x = saved_el.rect.x - mouse_x
-                        offset_y = saved_el.rect.y - mouse_y'''
-                    dragging = True
-                    mouse_x, mouse_y = event.pos
-                    offset_x = saved_el.rect.x - mouse_x
-                    offset_y = saved_el.rect.y - mouse_y 
-                    
-                #except Exception:
-                #continue
+                    try:
+                        coords = table.get_cell(event.pos)
+                        print(coords)
+                        if coords!= None:
+                            x, y = coords[0], coords[1]
+                            saved_el = self.spis_el[x]
+                            dragging = True
+                            mouse_x, mouse_y = event.pos
+                            test = Test_Substance((mouse_x, mouse_y), \
+                                                  saved_el.normal_state,\
+                                                  saved_el.color,\
+                                                  saved_el.name,\
+                                                  test_group)
+                            all_sprites.add(test, layer=2)
+                            '''if saved_el.mask.get_at((event.pos[0] - saved_el.rect.x,\
+                                                           event.pos[1]\
+                                                           - saved_el.rect.y)):
+                            print(True)
+                            dragging = True
+                            mouse_x, mouse_y = event.pos
+                            offset_x = saved_el.rect.x - mouse_x
+                            offset_y = saved_el.rect.y - mouse_y'''                
+                    except Exception:
+                        continue
                          
                 if event.type == pygame.MOUSEMOTION:
                     if dragging and saved_el != None:
                         mouse_x, mouse_y = event.pos
-                        saved_el.change_pos((mouse_x + offset_x, mouse_y + offset_y))
-                        #saved_el.rect.y =   
+                        test.change_pos((mouse_x, mouse_y))  
                         
-                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:            
-                    dragging = False
-                    saved_el = None
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    try:
+                        dragging = False
+                        saved_el = None
+                        if pygame.sprite.collide_mask(test, main_flask):
+                            main_flask.change(test.color)
+                        test.kill()
+                    except Exception as e:
+                        print(e)
                                      
 
                 if event.type == pygame.KEYUP:
@@ -332,7 +342,45 @@ class Flask(Object):
         self.image = pygame.transform.scale(self.image, (250, 250))
         self.rect = self.image.get_rect().move(pos[0], pos[1])
         self.mask = pygame.mask.from_surface(self.image)
-
+        self.counter = 0
+    
+    def change(self, color):
+        self.counter += 1
+        if self.counter == 1:
+            self.image = load_image('Flask_filled_1.png', -1)
+        elif self.counter == 2:
+            self.image = load_image('Flask_filled_2.png', -1)
+        elif self.counter == 3:
+            self.image = load_image('Flask_filled_3.png', -1)
+        elif self.counter == 4:
+            self.image = load_image('Flask_filled_4.png', -1)
+        elif self.counter == 5:
+            self.image = load_image('Flask_filled_5.png', -1)            
+        self.image = pygame.transform.scale(self.image, (250, 250))
+        pixels = pygame.PixelArray(self.image)
+        colors_appearance = {}
+        colors_freq = []
+        for i in range(len(pixels)):
+            for j in range(len(pixels[i])):
+                if pixels[i][j] not in colors_appearance:
+                    colors_appearance[pixels[i][j]] = 1
+                else:
+                    colors_appearance[pixels[i][j]] += 1
+        for i in colors_appearance.keys():
+            colors_freq.append([i, colors_appearance[i]])
+        colors_freq = sorted(colors_freq, key=lambda x: x[1], reverse=True)
+        colors_freq = list(map(lambda x: self.image.unmap_rgb(x[0]),\
+                               colors_freq))
+        #print(colors_freq)
+        colors_freq = list(filter(lambda x: 203 - 10 <= x.r <= 203 + 15,\
+                                  colors_freq))
+        #print(colors_freq)
+        for i in colors_freq:
+            pixels.replace(i, pygame.Color(color))
+        colorImage = pixels.make_surface()
+        pixels.close()
+        self.image.blit(colorImage, (0, 0))
+                
 
 class Pipette(Object):
     def __init__(self, pos, *groups):
@@ -439,8 +487,8 @@ class Table_of_elements:
     pygame.display.flip()'''
 
 
-class Substance(Object):
-    def __init__(self, pos, normal_state, color, quantity, name, *groups):
+class Object_Substance(Object):
+    def __init__(self, pos, normal_state, color, name, *groups):
         self.normal_state = normal_state
         if self.normal_state == 'solid':
             super().__init__(pos, 'solid.png', -1, *groups)
@@ -453,20 +501,31 @@ class Substance(Object):
             self.image = pygame.transform.scale(self.image, (50, 50))
         self.name = name
         self.pos = pos
-
+        self.color = color
         colorImage = pygame.Surface(self.image.get_size()).convert_alpha()
-        colorImage.fill(pygame.Color(color))
+        colorImage.fill(pygame.Color(self.color))
         self.image.blit(colorImage, (0,0), \
                         special_flags = pygame.BLEND_RGB_MULT)        
-        self.quantity = quantity
         
         self.rect = self.image.get_rect().move(pos[0], pos[1])
         self.mask = pygame.mask.from_surface(self.image)
     
     def change_pos(self, pos):
         self.rect.x = pos[0]
-        self.rect.y = pos[1]
+        self.rect.y = pos[1]    
+    
+class Substance(Object_Substance):
+    def __init__(self, pos, normal_state, color, quantity, name, *groups):
+        super().__init__(pos, normal_state, color, name, *groups)
+        self.quantity = quantity
+
+
+class Test_Substance(Object_Substance):
+    def __init__(self, pos, normal_state, color, name, *groups):
+        super().__init__(pos, normal_state, color, name, *groups)
+        self.pos = pos
         
+           
 if __name__ == '__main__':
     # Определение переменных
 
